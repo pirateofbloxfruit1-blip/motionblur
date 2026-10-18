@@ -1,5 +1,4 @@
-let ffmpegInstance = null;
-let videoDuration = 0;
+let selectedFileBlob = null;
 let finalVideoUrl = null;
 
 const fileInput = document.getElementById('file-input');
@@ -16,127 +15,98 @@ const progressFill = document.getElementById('progress-fill');
 const progressLabel = document.getElementById('progress-label');
 const statusDiv = document.getElementById('status');
 
-if (sliderBlur && blurVal) {
-    sliderBlur.addEventListener('input', function() { blurVal.textContent = sliderBlur.value + '%'; });
-}
-if (sliderBlend && blendVal) {
-    sliderBlend.addEventListener('input', function() { blendVal.textContent = sliderBlend.value + '%'; });
-}
+// Sliders percentage tracking
+sliderBlur.addEventListener('input', function() { blurVal.textContent = sliderBlur.value + '%'; });
+sliderBlend.addEventListener('input', function() { blendVal.textContent = sliderBlend.value + '%'; });
 
-if (fileInput) {
-    fileInput.addEventListener('change', function(e) {
-        const selectedFiles = e.target.files; 
-        if (selectedFiles && selectedFiles.length > 0) {
-            finalVideoUrl = null;
-            if (exportBtn) exportBtn.style.display = 'none';
-            if (blurBtn) { blurBtn.style.display = 'block'; blurBtn.disabled = false; }
-            const blobUrl = URL.createObjectURL(selectedFiles[0]);
-            if (player) { player.src = blobUrl; player.load(); player.currentTime = 0; player.pause(); }
-            if (previewWrapper) previewWrapper.style.display = 'block'; 
-            if (statusDiv) statusDiv.textContent = "Raw file loaded. Tap video window to preview.";
-        }
-    });
-}
+// Video Upload Configuration
+fileInput.addEventListener('change', function(e) {
+    const files = e.target.files; 
+    if (files && files.length > 0) {
+        selectedFileBlob = files[0];
+        finalVideoUrl = null;
+        exportBtn.style.display = 'none';
+        blurBtn.style.display = 'block';
+        blurBtn.disabled = false;
+        
+        const blobUrl = URL.createObjectURL(selectedFileBlob);
+        player.src = blobUrl;
+        player.load();
+        player.currentTime = 0;
+        player.pause(); 
+        
+        previewWrapper.style.display = 'block'; 
+        statusDiv.textContent = "Raw file loaded. Tap video window to preview.";
+    }
+});
 
-if (previewWrapper && player) {
-    previewWrapper.addEventListener('click', function() {
-        if (player.paused || player.ended) { player.play().catch(function(err) { console.log(err); }); } 
-        else { player.pause(); }
-    });
-}
+// Play/Pause Video Click Controls
+previewWrapper.addEventListener('click', function() {
+    if (player.paused || player.ended) { player.play().catch(function(err) { console.log(err); }); } 
+    else { player.pause(); }
+});
 
-if (player) {
-    player.addEventListener('ended', function() { player.currentTime = 0; player.pause(); });
-    player.addEventListener('loadedmetadata', function() { videoDuration = player.duration; });
-}
+player.addEventListener('ended', function() { player.currentTime = 0; player.pause(); });
 
-if (blurBtn) {
-    blurBtn.addEventListener('click', async function() {
-        if (!fileInput || !fileInput.files || fileInput.files.length === 0) return;
+// Video Render Engine
+blurBtn.addEventListener('click', function() {
+    if (!selectedFileBlob) return;
+    
+    blurBtn.style.display = 'none';
+    progressWrapper.style.display = 'block';
+    progressFill.style.width = '50%';
+    progressLabel.textContent = "Applying Effects...";
+    statusDiv.textContent = "Processing frame mixing scripts...";
 
+    const reader = new FileReader();
+    reader.onload = function() {
+        const u8array = new Uint8Array(reader.result);
+        
+        const sigmaValue = (parseInt(sliderBlur.value) / 100) * 8; 
+        const frameMixCount = Math.max(1, Math.round((parseInt(sliderBlend.value) / 100) * 8)); 
+
+        let filters = [];
+        if (frameMixCount > 1) filters.push('tmix=frames=' + frameMixCount + ":weights='1'");
+        if (sigmaValue > 0) filters.push('gblur=sigma=' + sigmaValue);
+        const filterArgs = filters.join(',');
+
+        // Instantly execute inside standalone web assembler space
         try {
-            blurBtn.style.display = 'none';
-            if (progressWrapper) progressWrapper.style.display = 'block';
-            if (progressFill) progressFill.style.width = '0%';
-            if (progressLabel) progressLabel.textContent = "Loading Engine...";
-            if (statusDiv) statusDiv.textContent = "Initializing libraries...";
+            const result = ffmpeg({
+                arguments: ['-i', 'input.mp4', '-vf', filterArgs, '-c:a', 'copy', 'output.mp4'],
+                MEMFS: [{ name: 'input.mp4', data: u8array }]
+            });
 
-            if (typeof FFmpeg === 'undefined') {
-                alert("Engine scripts are still downloading. Please give it 5 seconds and click again.");
-                blurBtn.style.display = 'block';
-                if (progressWrapper) progressWrapper.style.display = 'none';
-                return;
-            }
-
-            if (!ffmpegInstance) {
-                // FIXED COMPATIBLE PATH COMBINATION MATCHING INDEX.HTML
-                ffmpegInstance = FFmpeg.createFFmpeg({ 
-                    corePath: 'https://unpkg.com/@ffmpeg/core@0.11.0/dist/ffmpeg-core.js',
-                    log: true 
-                });
+            const outVideo = result.MEMFS[0];
+            if (outVideo && outVideo.data) {
+                progressFill.style.width = '100%';
+                progressLabel.textContent = "Finished 100%";
                 
-                ffmpegInstance.setLogger(function(logData) {
-                    const message = logData.message;
-                    if (message && message.includes('time=') && videoDuration > 0) {
-                        const timeMatch = message.match(/time=(\d+):(\d+):(\d+\.\d+)/);
-                        if (timeMatch) {
-                            const hours = parseFloat(timeMatch[1]);
-                            const minutes = parseFloat(timeMatch[2]);
-                            const seconds = parseFloat(timeMatch[3]);
-                            const currentTime = (hours * 3600) + (minutes * 60) + seconds;
-                            let progress = Math.min(Math.round((currentTime / videoDuration) * 100), 99);
-                            if (progressFill) progressFill.style.width = progress + '%';
-                            if (progressLabel) progressLabel.textContent = 'Processing ' + progress + '%';
-                        }
-                    }
-                });
-            }
-
-            if (!ffmpegInstance.isLoaded()) { await ffmpegInstance.load(); }
-
-            if (progressLabel) progressLabel.textContent = "Processing 0%";
-            ffmpegInstance.FS('writeFile', 'input.mp4', await FFmpeg.fetchFile(fileInput.files[0]));
-
-            const sigmaValue = (parseInt(sliderBlur.value) / 100) * 8; 
-            const frameMixCount = Math.max(1, Math.round((parseInt(sliderBlend.value) / 100) * 8)); 
-
-            let filters = [];
-            if (frameMixCount > 1) filters.push('tmix=frames=' + frameMixCount + ":weights='1'");
-            if (sigmaValue > 0) filters.push('gblur=sigma=' + sigmaValue);
-            const filterArgs = filters.join(',');
-
-            if (filterArgs) {
-                await ffmpegInstance.run('-i', 'input.mp4', '-vf', filterArgs, '-c:a', 'copy', 'output.mp4');
+                finalVideoUrl = URL.createObjectURL(new Blob([outVideo.data.buffer], { type: 'video/mp4' }));
+                player.src = finalVideoUrl;
+                player.currentTime = 0;
+                player.pause();
+                
+                progressWrapper.style.display = 'none';
+                exportBtn.style.display = 'block';
+                statusDiv.textContent = "Render completed! Click Export to save.";
             } else {
-                await ffmpegInstance.run('-i', 'input.mp4', '-c', 'copy', 'output.mp4');
+                throw new Error("Render returned clean metadata but empty track bounds.");
             }
-
-            if (progressFill) progressFill.style.width = '100%';
-            if (progressLabel) progressLabel.textContent = "Finished 100%";
-            
-            const data = ffmpegInstance.FS('readFile', 'output.mp4');
-            finalVideoUrl = URL.createObjectURL(new Blob([data.buffer], { type: 'video/mp4' }));
-            
-            if (player) { player.src = finalVideoUrl; player.currentTime = 0; player.pause(); }
-            if (progressWrapper) progressWrapper.style.display = 'none';
-            if (exportBtn) exportBtn.style.display = 'block';
-            if (statusDiv) statusDiv.textContent = "Render completed! Click Export to save.";
-            
-        } catch (error) {
-            console.error(error);
-            if (statusDiv) statusDiv.textContent = "⚠️ Render interrupted. Try using a shorter clip.";
-            if (progressWrapper) progressWrapper.style.display = 'none';
+        } catch (err) {
+            console.error(err);
+            statusDiv.textContent = "⚠️ Processing error. Ensure file size is small (under 10MB).";
+            progressWrapper.style.display = 'none';
             blurBtn.style.display = 'block';
         }
-    });
-}
+    };
+    reader.readAsArrayBuffer(selectedFileBlob);
+});
 
-if (exportBtn) {
-    exportBtn.addEventListener('click', function() {
-        if (!finalVideoUrl) return;
-        const dl = document.createElement('a');
-        dl.href = finalVideoUrl;
-        dl.download = 'free-motion-blur.mp4';
-        dl.click();
-    });
-}
+exportBtn.addEventListener('click', function() {
+    if (!finalVideoUrl) return;
+    const dl = document.createElement('a');
+    dl.href = finalVideoUrl;
+    dl.download = 'free-motion-blur.mp4';
+    dl.click();
+});
