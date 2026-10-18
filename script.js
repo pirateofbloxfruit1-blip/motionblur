@@ -29,10 +29,10 @@ sliderBlend.addEventListener('input', function() {
 
 // Handle Video Upload & Unblurred Preview Configuration
 fileInput.addEventListener('change', function(e) {
-    const file = e.target.files[0]; // FIX: Explicitly grabbing the first file index
+    const file = e.target.files[0]; // FIXED: Added array pointer [0] to target the uploaded file
     if (file) {
         finalVideoUrl = null;
-        exportBtn.style.display = 'none'; // FIX: Corrected duplicate style.style typo
+        exportBtn.style.display = 'none'; 
         blurBtn.style.display = 'block';
         blurBtn.disabled = false;
         
@@ -87,8 +87,7 @@ ffmpeg.setLogger(function(logData) {
 
 // Convert Percentage Values to FFmpeg Filters
 blurBtn.addEventListener('click', async function() {
-    const file = fileInput.files[0]; // FIX: Grab individual file object wrapper
-    if (!file) return;
+    if (!fileInput.files || !fileInput.files[0]) return;
 
     try {
         blurBtn.style.display = 'none';
@@ -104,7 +103,7 @@ blurBtn.addEventListener('click', async function() {
         progressLabel.textContent = "Processing 0%";
         statusDiv.textContent = "Applying motion blur equations. Please wait...";
         
-        ffmpeg.FS('writeFile', 'input.mp4', await fetchFile(file));
+        ffmpeg.FS('writeFile', 'input.mp4', await fetchFile(fileInput.files[0]));
 
         const rawBlur = parseInt(sliderBlur.value); 
         const rawBlend = parseInt(sliderBlend.value); 
