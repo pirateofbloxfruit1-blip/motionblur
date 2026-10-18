@@ -8,7 +8,7 @@ const player = document.getElementById('video-player');
 const sliderBlur = document.getElementById('slider-blur');
 const sliderBlend = document.getElementById('slider-blend');
 const blurVal = document.getElementById('blur-val');
-const blendVal = document.getElementById('blend-val') || document.getElementById('slider-val');
+const blendVal = document.getElementById('blend-val');
 const blurBtn = document.getElementById('blur-btn');
 const exportBtn = document.getElementById('export-btn');
 const progressWrapper = document.getElementById('progress-wrapper');
@@ -53,12 +53,6 @@ if (player) {
 if (blurBtn) {
     blurBtn.addEventListener('click', async function() {
         if (!fileInput || !fileInput.files || fileInput.files.length === 0) return;
-        
-        // SECURITY CHECK: Instantly catches browser header blocks instead of hanging
-        if (!window.crossOriginIsolated) {
-            alert("Security Block: Your browser is blocking WebAssembly threads. Please try checking the site in a Chrome Incognito Window or try a full hard refresh (Ctrl+F5).");
-            return;
-        }
 
         try {
             blurBtn.style.display = 'none';
@@ -75,9 +69,9 @@ if (blurBtn) {
             }
 
             if (!ffmpegInstance) {
-                // Switched to a robust CDN delivery route
+                // FIXED COMPATIBLE PATH COMBINATION MATCHING INDEX.HTML
                 ffmpegInstance = FFmpeg.createFFmpeg({ 
-                    corePath: 'https://cloudflare.com',
+                    corePath: 'https://unpkg.com/@ffmpeg/core@0.11.0/dist/ffmpeg-core.js',
                     log: true 
                 });
                 
