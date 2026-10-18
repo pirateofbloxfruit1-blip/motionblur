@@ -4,8 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Free Motion Blur</title>
+    <!-- Cross-Origin isolation driver for GitHub Pages -->
     <script src="coi-serviceworker.js"></script>
-    <!-- FIXED LINE 10: Added the full, correct video engine library link -->
+    <!-- LOCKED COMPATIBLE VERSION 0.11.0 -->
     <script src="https://unpkg.com"></script>
     <style>
         body {
@@ -60,7 +61,6 @@
             <input type="range" id="slider-blur" min="20" max="100" value="20">
         </div>
         <div class="slider-row">
-            <!-- FIXED UNIQUE ID HERE -->
             <label><span>Blend Ratio</span><span id="blend-val">0%</span></label>
             <input type="range" id="slider-blend" min="0" max="100" value="0">
         </div>
