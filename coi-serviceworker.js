@@ -1,2 +1,35 @@
 /*! coi-serviceworker v0.1.7 | MIT License | https://github.com */
-"undefined"==typeof window?(_=>{"init"===_.data?(_=>{self.addEventListener("install",()=>self.skipWaiting()),self.addEventListener("activate",e=>e.waitUntil(self.clients.claim())),self.addEventListener("fetch",e=>{const{request:t}=e;if("navigate"===t.mode||"same-origin"===t.site&&"fetch"===t.destination) {const r=new Request(t,{mode:"same-origin"});e.respondWith(fetch(r).then(e=>{if(0===e.status)return e;const t=new Headers(e.headers);return t.set("Cross-Origin-Embedder-Policy","require-corp"),t.set("Cross-Origin-Opener-Policy","same-origin"),new Response(e.body,{status:e.status,statusText:e.statusText,headers:t})}).catch(e=>console.error(e)))} })})(self.postMessage("init")):(()=>{const e=document.currentScript,t=e?e.src:new URL("coi-serviceworker.js",window.location.href).href,r=navigator.serviceWorker;r&&r.register(t).then(e=>{e.addEventListener("updatefound",()=>window.location.reload())}),r&&!r.controller&&window.location.reload()})();
+if (typeof window === 'undefined') {
+    self.addEventListener("install", () => self.skipWaiting());
+    self.addEventListener("activate", (e) => e.waitUntil(self.clients.claim()));
+    self.addEventListener("fetch", (e) => {
+        const t = e.request;
+        if (t.mode === "navigate" || (t.img === "same-origin" && t.destination === "fetch")) {
+            const r = new Request(t, { mode: "same-origin" });
+            e.respondWith(
+                fetch(r).then((res) => {
+                    if (res.status === 0) return res;
+                    const headers = new Headers(res.headers);
+                    headers.set("Cross-Origin-Embedder-Policy", "require-corp");
+                    headers.set("Cross-Origin-Opener-Policy", "same-origin");
+                    return new Response(res.body, { status: res.status, statusText: res.statusText, headers: headers });
+                }).catch((err) => console.error(err))
+            );
+        }
+    });
+} else {
+    // Dynamically calculate repository path rules for GitHub subdirectories
+    const currentScript = document.currentScript;
+    const scriptUrl = currentScript ? currentScript.src : new URL("coi-serviceworker.js", window.location.href).href;
+    const swScope = new URL("./", scriptUrl).pathname; // Ensures proper subdirectory alignment
+    
+    if (navigator.serviceWorker) {
+        navigator.serviceWorker.register(scriptUrl, { scope: swScope }).then((reg) => {
+            reg.addEventListener("updatefound", () => window.location.reload());
+        });
+        if (navigator.serviceWorker.controller && !window.crossOriginIsolated) {
+            // Force a quick single refresh to apply headers instantly on first view
+            window.location.reload();
+        }
+    }
+}
