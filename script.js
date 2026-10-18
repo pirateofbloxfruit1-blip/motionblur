@@ -29,10 +29,10 @@ sliderBlend.addEventListener('input', function() {
 
 // Handle Video Upload & Unblurred Preview Configuration
 fileInput.addEventListener('change', function(e) {
-    const file = e.target.files[0]; // Point explicitly to the first file index
+    const file = e.target.files[0]; // FIX: Explicitly grabbing the first file index
     if (file) {
         finalVideoUrl = null;
-        exportBtn.style.style = 'none';
+        exportBtn.style.display = 'none'; // FIX: Corrected duplicate style.style typo
         blurBtn.style.display = 'block';
         blurBtn.disabled = false;
         
@@ -70,7 +70,7 @@ player.addEventListener('loadedmetadata', function() {
 // Capture Processing Engine Console Prints to track timelines
 ffmpeg.setLogger(function(logData) {
     const message = logData.message;
-    if (message.includes('time=') && videoDuration > 0) {
+    if (message && message.includes('time=') && videoDuration > 0) {
         const timeMatch = message.match(/time=(\d+):(\d+):(\d+\.\d+)/);
         if (timeMatch) {
             const hours = parseFloat(timeMatch[1]);
@@ -87,7 +87,7 @@ ffmpeg.setLogger(function(logData) {
 
 // Convert Percentage Values to FFmpeg Filters
 blurBtn.addEventListener('click', async function() {
-    const file = fileInput.files[0];
+    const file = fileInput.files[0]; // FIX: Grab individual file object wrapper
     if (!file) return;
 
     try {
