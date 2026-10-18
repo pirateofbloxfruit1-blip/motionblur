@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Free Motion Blur</title>
+    <!-- Cross-Origin isolation driver for GitHub Pages -->
+    <script src="coi-serviceworker.js"></script>
+    <!-- FFmpeg engine library -->
+    <script src="https://unpkg.com"></script>
+    <style>
+        body {
+            background-color: #0b0b0e;
+            color: #ffffff;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 15px;
+        }
+        .container {
+            background-color: #14141b;
+            padding: 24px;
+            border-radius: 16px;
+            box-shadow: 0 16px 40px rgba(0,0,0,0.7);
+            width: 100%;
+            max-width: 550px;
+            box-sizing: border-box;
+            text-align: center;
+        }
+        h1 {
+            font-size: 26px;
+            margin-top: 0;
+            margin-bottom: 20px;
+            text-transform: lowercase;
+            letter-spacing: -0.5px;
+            background: linear-gradient(45deg, #00f2fe, #4facfe);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .upload-label {
+            background-color: #1f1f2e;
+            border: 2px dashed #3a3a52;
+            padding: 16px;
+            border-radius: 10px;
+            cursor: pointer;
+            display: block;
+            margin-bottom: 20px;
+            font-weight: 500;
+        }
+        .upload-label:hover { border-color: #00f2fe; }
+        input[type="file"] { display: none; }
+        
+        /* Auto-adjusting Video Canvas Box */
+        .preview-box {
+            width: 100%;
+            display: none;
+            margin-bottom: 20px;
+            border-radius: 10px;
+            overflow: hidden;
+            background: #000;
+            cursor: pointer;
+        }
+        video {
+            width: 100%;
+            height: auto;
+            max-height: 60vh;
+            display: block;
+        }
+        
+        .sliders-container {
+            text-align: left;
+            margin-bottom: 20px;
+        }
+        .slider-row { margin-bottom: 14px; }
+        .slider-row label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 13px;
+            color: #9292a6;
+            margin-bottom: 4px;
+        }
+        input[type="range"] {
+            width: 100%;
+            accent-color: #00f2fe;
+        }
+        
+        /* Interactive Dual-State Action Controls */
+        .btn {
+            width: 100%;
+            padding: 14px;
+            border-radius: 10px;
+            font-size: 15px;
+            font-weight: 700;
+            border: none;
+            cursor: pointer;
+            margin-bottom: 10px;
+        }
+        .btn-blur {
+            background: linear-gradient(135deg, #00f2fe 0%, #4facfe 100%);
+            color: #000;
+        }
+        .btn-blur:disabled {
+            background: #252533;
+            color: #52526b;
+            cursor: not-allowed;
+        }
+        .btn-export {
+            background-color: #22c55e;
+            color: #fff;
+            display: none; /* Hidden until processing is done */
+        }
+        
+        /* Live Render Progress UI Component */
+        .progress-container {
+            width: 100%;
+            background-color: #252533;
+            border-radius: 10px;
+            height: 48px;
+            position: relative;
+            overflow: hidden;
+            display: none;
+            margin-bottom: 10px;
+        }
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #4facfe, #00f2fe);
+            width: 0%;
+            transition: width 0.1s linear;
+        }
+        .progress-text {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 14px;
+            color: #fff;
+        }
+        #status { font-size: 13px; color: #71718a; margin-top: 10px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>free motion blur</h1>
+    
+    <label class="upload-label">
+        📂 Upload Video
+        <input type="file" id="file-input" accept="video/*">
+    </label>
+
+    <div class="preview-box" id="preview-wrapper">
+        <video id="video-player" playsinline></video>
+    </div>
+
+    <div class="sliders-container">
+        <div class="slider-row">
+            <label><span>Blur Amount</span><span id="blur-val">20%</span></label>
+            <input type="range" id="slider-blur" min="20" max="100" value="20">
+        </div>
+        <div class="slider-row">
+            <label><span>Blend Ratio</span><span id="slider-val">0%</span></label>
+            <input type="range" id="slider-blend" min="0" max="100" value="0">
+        </div>
+    </div>
+
+    <!-- State Buttons & Progress Components -->
+    <button id="blur-btn" class="btn btn-blur" disabled>Add Motion Blur</button>
+    
+    <div class="progress-container" id="progress-wrapper">
+        <div class="progress-bar" id="progress-fill"></div>
+        <div class="progress-text" id="progress-label">Processing 0%</div>
+    </div>
+
+    <button id="export-btn" class="btn btn-export">💾 Export Video</button>
+    <div id="status">Upload an asset file above to unlock processing mechanics.</div>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
