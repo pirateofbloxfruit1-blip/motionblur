@@ -1,9 +1,7 @@
-// Keep track of files globally without crashing on load
 let ffmpegInstance = null;
 let videoDuration = 0;
 let finalVideoUrl = null;
 
-// Grab layout elements safely
 const fileInput = document.getElementById('file-input');
 const previewWrapper = document.getElementById('preview-wrapper');
 const player = document.getElementById('video-player');
@@ -18,71 +16,50 @@ const progressFill = document.getElementById('progress-fill');
 const progressLabel = document.getElementById('progress-label');
 const statusDiv = document.getElementById('status');
 
-// 1. Sliders percentage tracking
 if (sliderBlur && blurVal) {
-    sliderBlur.addEventListener('input', function() {
-        blurVal.textContent = sliderBlur.value + '%';
-    });
+    sliderBlur.addEventListener('input', function() { blurVal.textContent = sliderBlur.value + '%'; });
 }
 if (sliderBlend && blendVal) {
-    sliderBlend.addEventListener('input', function() {
-        blendVal.textContent = sliderBlend.value + '%';
-    });
+    sliderBlend.addEventListener('input', function() { blendVal.textContent = sliderBlend.value + '%'; });
 }
 
-// 2. Video Upload Configuration
 if (fileInput) {
     fileInput.addEventListener('change', function(e) {
         const selectedFiles = e.target.files; 
         if (selectedFiles && selectedFiles.length > 0) {
             finalVideoUrl = null;
             if (exportBtn) exportBtn.style.display = 'none';
-            if (blurBtn) {
-                blurBtn.style.display = 'block';
-                blurBtn.disabled = false;
-            }
-            
+            if (blurBtn) { blurBtn.style.display = 'block'; blurBtn.disabled = false; }
             const blobUrl = URL.createObjectURL(selectedFiles[0]);
-            if (player) {
-                player.src = blobUrl;
-                player.load();
-                player.currentTime = 0;
-                player.pause(); 
-            }
-            
+            if (player) { player.src = blobUrl; player.load(); player.currentTime = 0; player.pause(); }
             if (previewWrapper) previewWrapper.style.display = 'block'; 
             if (statusDiv) statusDiv.textContent = "Raw file loaded. Tap video window to preview.";
         }
     });
 }
 
-// 3. Play/Pause Video Click Controls
 if (previewWrapper && player) {
     previewWrapper.addEventListener('click', function() {
-        if (player.paused || player.ended) {
-            player.play().catch(function(err) { console.log("Playback error:", err); });
-        } else {
-            player.pause();
-        }
+        if (player.paused || player.ended) { player.play().catch(function(err) { console.log(err); }); } 
+        else { player.pause(); }
     });
 }
 
 if (player) {
-    player.addEventListener('ended', function() {
-        player.currentTime = 0;
-        player.pause();
-    });
-
-    player.addEventListener('loadedmetadata', function() {
-        videoDuration = player.duration;
-    });
+    player.addEventListener('ended', function() { player.currentTime = 0; player.pause(); });
+    player.addEventListener('loadedmetadata', function() { videoDuration = player.duration; });
 }
 
-// 4. Video Render Engine (With Direct Core Optimization Maps)
 if (blurBtn) {
     blurBtn.addEventListener('click', async function() {
         if (!fileInput || !fileInput.files || fileInput.files.length === 0) return;
         
+        // SECURITY CHECK: Instantly catches browser header blocks instead of hanging
+        if (!window.crossOriginIsolated) {
+            alert("Security Block: Your browser is blocking WebAssembly threads. Please try checking the site in a Chrome Incognito Window or try a full hard refresh (Ctrl+F5).");
+            return;
+        }
+
         try {
             blurBtn.style.display = 'none';
             if (progressWrapper) progressWrapper.style.display = 'block';
@@ -91,16 +68,16 @@ if (blurBtn) {
             if (statusDiv) statusDiv.textContent = "Initializing libraries...";
 
             if (typeof FFmpeg === 'undefined') {
-                alert("The video processing library hasn't finished downloading yet. Please wait 5 seconds and try again.");
+                alert("Engine scripts are still downloading. Please give it 5 seconds and click again.");
                 blurBtn.style.display = 'block';
                 if (progressWrapper) progressWrapper.style.display = 'none';
                 return;
             }
 
-            // FIXED: Added direct corePath parameters so initialization doesn't hang in an infinite loop
             if (!ffmpegInstance) {
+                // Switched to a robust CDN delivery route
                 ffmpegInstance = FFmpeg.createFFmpeg({ 
-                    corePath: 'https://unpkg.com',
+                    corePath: 'https://cloudflare.com',
                     log: true 
                 });
                 
@@ -121,9 +98,7 @@ if (blurBtn) {
                 });
             }
 
-            if (!ffmpegInstance.isLoaded()) { 
-                await ffmpegInstance.load(); 
-            }
+            if (!ffmpegInstance.isLoaded()) { await ffmpegInstance.load(); }
 
             if (progressLabel) progressLabel.textContent = "Processing 0%";
             ffmpegInstance.FS('writeFile', 'input.mp4', await FFmpeg.fetchFile(fileInput.files[0]));
@@ -148,12 +123,7 @@ if (blurBtn) {
             const data = ffmpegInstance.FS('readFile', 'output.mp4');
             finalVideoUrl = URL.createObjectURL(new Blob([data.buffer], { type: 'video/mp4' }));
             
-            if (player) {
-                player.src = finalVideoUrl;
-                player.currentTime = 0;
-                player.pause();
-            }
-            
+            if (player) { player.src = finalVideoUrl; player.currentTime = 0; player.pause(); }
             if (progressWrapper) progressWrapper.style.display = 'none';
             if (exportBtn) exportBtn.style.display = 'block';
             if (statusDiv) statusDiv.textContent = "Render completed! Click Export to save.";
