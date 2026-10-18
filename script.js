@@ -23,7 +23,7 @@ sliderBlend.addEventListener('input', function() { blendVal.textContent = slider
 fileInput.addEventListener('change', function(e) {
     const files = e.target.files; 
     if (files && files.length > 0) {
-        selectedFileBlob = files[0]; // FIXED: Targeting the specific first file index
+        selectedFileBlob = files[0]; // Targeted file object index pointer
         finalVideoUrl = null;
         if (exportBtn) exportBtn.style.display = 'none';
         if (blurBtn) {
@@ -62,62 +62,65 @@ blurBtn.addEventListener('click', function() {
     
     blurBtn.style.display = 'none';
     progressWrapper.style.display = 'block';
-    progressFill.style.width = '25%';
-    progressLabel.textContent = "Reading file...";
-    statusDiv.textContent = "Processing frame mixing scripts...";
+    progressFill.style.width = '20%';
+    progressLabel.textContent = "Reading video data...";
+    statusDiv.textContent = "Loading file bits into sandboxed memory cache...";
 
     const reader = new FileReader();
     reader.onload = function() {
-        progressFill.style.width = '50%';
-        progressLabel.textContent = "Applying effects...";
+        progressFill.style.width = '45%';
+        progressLabel.textContent = "Rendering matrix...";
+        statusDiv.textContent = "Processing frame mixing scripts...";
         
-        const u8array = new Uint8Array(reader.result);
-        
-        const sigmaValue = (parseInt(sliderBlur.value) / 100) * 8; 
-        const frameMixCount = Math.max(1, Math.round((parseInt(sliderBlend.value) / 100) * 8)); 
+        // FIX: Wrapped inside an asynchronous timeout block to give UI threads room to breathe
+        setTimeout(function() {
+            const u8array = new Uint8Array(reader.result);
+            
+            const sigmaValue = (parseInt(sliderBlur.value) / 100) * 8; 
+            const frameMixCount = Math.max(1, Math.round((parseInt(sliderBlend.value) / 100) * 8)); 
 
-        let filters = [];
-        if (frameMixCount > 1) filters.push('tmix=frames=' + frameMixCount + ":weights='1'");
-        if (sigmaValue > 0) filters.push('gblur=sigma=' + sigmaValue);
-        const filterArgs = filters.join(',');
+            let filters = [];
+            if (frameMixCount > 1) filters.push('tmix=frames=' + frameMixCount + ":weights='1'");
+            if (sigmaValue > 0) filters.push('gblur=sigma=' + sigmaValue);
+            const filterArgs = filters.join(',');
 
-        // Execute inside standalone web assembler space
-        try {
-            // Check if library loaded safely
-            if (typeof ffmpeg === 'undefined') {
-                alert("The processing library is still loading from the web. Please wait 5 seconds and click again.");
+            try {
+                if (typeof ffmpeg === 'undefined') {
+                    alert("The processing library is still loading from the web. Please wait 5 seconds and click again.");
+                    blurBtn.style.display = 'block';
+                    progressWrapper.style.display = 'none';
+                    return;
+                }
+
+                const result = ffmpeg({
+                    arguments: ['-i', 'input.mp4', '-vf', filterArgs, '-c:a', 'copy', 'output.mp4'],
+                    MEMFS: [{ name: 'input.mp4', data: u8array }]
+                });
+
+                // Target standard array file indexes safely inside output logs
+                const outVideo = result.MEMFS && result.MEMFS[0]; 
+                if (outVideo && outVideo.data) {
+                    progressFill.style.width = '100%';
+                    progressLabel.textContent = "Finished 100%";
+                    
+                    finalVideoUrl = URL.createObjectURL(new Blob([outVideo.data.buffer], { type: 'video/mp4' }));
+                    player.src = finalVideoUrl;
+                    player.currentTime = 0;
+                    player.pause();
+                    
+                    progressWrapper.style.display = 'none';
+                    exportBtn.style.display = 'block';
+                    statusDiv.textContent = "Render completed! Click Export to save.";
+                } else {
+                    throw new Error("Empty processing returned.");
+                }
+            } catch (err) {
+                console.error(err);
+                statusDiv.textContent = "⚠️ Error. Turn down sliders or try a shorter clip.";
+                progressWrapper.style.display = 'none';
                 blurBtn.style.display = 'block';
-                progressWrapper.style.display = 'none';
-                return;
             }
-
-            const result = ffmpeg({
-                arguments: ['-i', 'input.mp4', '-vf', filterArgs, '-c:a', 'copy', 'output.mp4'],
-                MEMFS: [{ name: 'input.mp4', data: u8array }]
-            });
-
-            const outVideo = result.MEMFS && result.MEMFS[0]; // FIXED: Targeting individual file arrays inside MEMFS
-            if (outVideo && outVideo.data) {
-                progressFill.style.width = '100%';
-                progressLabel.textContent = "Finished 100%";
-                
-                finalVideoUrl = URL.createObjectURL(new Blob([outVideo.data.buffer], { type: 'video/mp4' }));
-                player.src = finalVideoUrl;
-                player.currentTime = 0;
-                player.pause();
-                
-                progressWrapper.style.display = 'none';
-                exportBtn.style.display = 'block';
-                statusDiv.textContent = "Render completed! Click Export to save.";
-            } else {
-                throw new Error("Render returned empty track data bounds.");
-            }
-        } catch (err) {
-            console.error(err);
-            statusDiv.textContent = "⚠️ Processing error. Try turning down the Blur / Blend sliders slightly.";
-            progressWrapper.style.display = 'none';
-            blurBtn.style.display = 'block';
-        }
+        }, 150); // Small interval separation releases main loop freezes
     };
     reader.readAsArrayBuffer(selectedFileBlob);
 });
