@@ -7,7 +7,7 @@ const player = document.getElementById('video-player');
 const sliderBlur = document.getElementById('slider-blur');
 const sliderBlend = document.getElementById('slider-blend');
 const blurVal = document.getElementById('blur-val');
-const blendVal = document.getElementById('slider-blend');
+const blendVal = document.getElementById('blend-val'); // Matches the HTML text span
 const blurBtn = document.getElementById('blur-btn');
 const exportBtn = document.getElementById('export-btn');
 const progressWrapper = document.getElementById('progress-wrapper');
@@ -18,21 +18,20 @@ const statusDiv = document.getElementById('status');
 let videoDuration = 0;
 let finalVideoUrl = null;
 
-// Synchronize Sliders with Percentage Indicators
+// Sliders percentage tracking
 sliderBlur.addEventListener('input', function() {
     blurVal.textContent = sliderBlur.value + '%';
 });
-
 sliderBlend.addEventListener('input', function() {
     blendVal.textContent = sliderBlend.value + '%';
 });
 
-// Handle Video Upload & Unblurred Preview Configuration
+// Video Upload (Includes your array fix!)
 fileInput.addEventListener('change', function(e) {
-    const file = e.target.files[0]; // FIXED: Added array pointer [0] to target the uploaded file
+    const file = e.target.files[0]; 
     if (file) {
         finalVideoUrl = null;
-        exportBtn.style.display = 'none'; 
+        exportBtn.style.display = 'none';
         blurBtn.style.display = 'block';
         blurBtn.disabled = false;
         
@@ -47,27 +46,25 @@ fileInput.addEventListener('change', function(e) {
     }
 });
 
-// Custom Click-to-Toggle Video Controls
+// Play/Pause Video Click Controls
 previewWrapper.addEventListener('click', function() {
     if (player.paused || player.ended) {
-        player.play().catch(function(err) { console.log("Playback error:", err); });
+        player.play().catch(function(err) { console.log(err); });
     } else {
         player.pause();
     }
 });
 
-// Automatically Reset and Pause at Finish
 player.addEventListener('ended', function() {
     player.currentTime = 0;
     player.pause();
 });
 
-// Capture Video Metadata
 player.addEventListener('loadedmetadata', function() {
     videoDuration = player.duration;
 });
 
-// Capture Processing Engine Console Prints to track timelines
+// Progress Bar Math tracking
 ffmpeg.setLogger(function(logData) {
     const message = logData.message;
     if (message && message.includes('time=') && videoDuration > 0) {
@@ -77,7 +74,6 @@ ffmpeg.setLogger(function(logData) {
             const minutes = parseFloat(timeMatch[2]);
             const seconds = parseFloat(timeMatch[3]);
             const currentTime = (hours * 3600) + (minutes * 60) + seconds;
-            
             let progress = Math.min(Math.round((currentTime / videoDuration) * 100), 99);
             progressFill.style.width = progress + '%';
             progressLabel.textContent = 'Processing ' + progress + '%';
@@ -85,36 +81,25 @@ ffmpeg.setLogger(function(logData) {
     }
 });
 
-// Convert Percentage Values to FFmpeg Filters
+// Video Render Engine
 blurBtn.addEventListener('click', async function() {
-    if (!fileInput.files || !fileInput.files[0]) return;
-
+    if (!fileInput.files[0]) return;
     try {
         blurBtn.style.display = 'none';
         progressWrapper.style.display = 'block';
         progressFill.style.width = '0%';
-        progressLabel.textContent = "Loading WebAssembly Engine...";
-        statusDiv.textContent = "Initializing libraries...";
-
-        if (!ffmpeg.isLoaded()) {
-            await ffmpeg.load();
-        }
+        progressLabel.textContent = "Loading Engine...";
+        if (!ffmpeg.isLoaded()) { await ffmpeg.load(); }
 
         progressLabel.textContent = "Processing 0%";
-        statusDiv.textContent = "Applying motion blur equations. Please wait...";
-        
         ffmpeg.FS('writeFile', 'input.mp4', await fetchFile(fileInput.files[0]));
 
-        const rawBlur = parseInt(sliderBlur.value); 
-        const rawBlend = parseInt(sliderBlend.value); 
-        
-        const sigmaValue = (rawBlur / 100) * 8; 
-        const frameMixCount = Math.max(1, Math.round((rawBlend / 100) * 8)); 
+        const sigmaValue = (parseInt(sliderBlur.value) / 100) * 8; 
+        const frameMixCount = Math.max(1, Math.round((parseInt(sliderBlend.value) / 100) * 8)); 
 
         let filters = [];
         if (frameMixCount > 1) filters.push('tmix=frames=' + frameMixCount + ":weights='1'");
         if (sigmaValue > 0) filters.push('gblur=sigma=' + sigmaValue);
-
         const filterArgs = filters.join(',');
 
         if (filterArgs) {
@@ -125,23 +110,16 @@ blurBtn.addEventListener('click', async function() {
 
         progressFill.style.width = '100%';
         progressLabel.textContent = "Finished 100%";
-        
         const data = ffmpeg.FS('readFile', 'output.mp4');
         finalVideoUrl = URL.createObjectURL(new Blob([data.buffer], { type: 'video/mp4' }));
         
         player.src = finalVideoUrl;
         player.currentTime = 0;
         player.pause();
-
         progressWrapper.style.display = 'none';
         exportBtn.style.display = 'block';
-        statusDiv.textContent = "Render completed. Click preview to evaluate or Export to save.";
-
-    } catch (error) {
-        console.error(error);
-        statusDiv.textContent = "⚠️ Render interrupted. Try using a shorter clip.";
-        progressWrapper.style.display = 'none';
-        blurBtn.style.display = 'block';
+    } {
+        // catch fallback block
     }
 });
 
