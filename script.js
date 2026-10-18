@@ -7,7 +7,7 @@ const player = document.getElementById('video-player');
 const sliderBlur = document.getElementById('slider-blur');
 const sliderBlend = document.getElementById('slider-blend');
 const blurVal = document.getElementById('blur-val');
-const blendVal = document.getElementById('blend-val'); // Matches the HTML text span
+const blendVal = document.getElementById('blend-val');
 const blurBtn = document.getElementById('blur-btn');
 const exportBtn = document.getElementById('export-btn');
 const progressWrapper = document.getElementById('progress-wrapper');
@@ -26,7 +26,7 @@ sliderBlend.addEventListener('input', function() {
     blendVal.textContent = sliderBlend.value + '%';
 });
 
-// Video Upload (Includes your array fix!)
+// Video Upload Configuration
 fileInput.addEventListener('change', function(e) {
     const file = e.target.files[0]; 
     if (file) {
@@ -64,7 +64,7 @@ player.addEventListener('loadedmetadata', function() {
     videoDuration = player.duration;
 });
 
-// Progress Bar Math tracking
+// Progress Bar Tracking
 ffmpeg.setLogger(function(logData) {
     const message = logData.message;
     if (message && message.includes('time=') && videoDuration > 0) {
@@ -83,7 +83,7 @@ ffmpeg.setLogger(function(logData) {
 
 // Video Render Engine
 blurBtn.addEventListener('click', async function() {
-    if (!fileInput.files[0]) return;
+    if (!fileInput.files || !fileInput.files[0]) return;
     try {
         blurBtn.style.display = 'none';
         progressWrapper.style.display = 'block';
@@ -118,8 +118,11 @@ blurBtn.addEventListener('click', async function() {
         player.pause();
         progressWrapper.style.display = 'none';
         exportBtn.style.display = 'block';
-    } {
-        // catch fallback block
+    } catch (error) {
+        console.error(error);
+        statusDiv.textContent = "⚠️ Render interrupted. Try using a shorter clip.";
+        progressWrapper.style.display = 'none';
+        blurBtn.style.display = 'block';
     }
 });
 
