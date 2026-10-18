@@ -23,11 +23,13 @@ sliderBlend.addEventListener('input', function() { blendVal.textContent = slider
 fileInput.addEventListener('change', function(e) {
     const files = e.target.files; 
     if (files && files.length > 0) {
-        selectedFileBlob = files[0];
+        selectedFileBlob = files[0]; // FIXED: Targeting the specific first file index
         finalVideoUrl = null;
-        exportBtn.style.display = 'none';
-        blurBtn.style.display = 'block';
-        blurBtn.disabled = false;
+        if (exportBtn) exportBtn.style.display = 'none';
+        if (blurBtn) {
+            blurBtn.style.display = 'block';
+            blurBtn.disabled = false;
+        }
         
         const blobUrl = URL.createObjectURL(selectedFileBlob);
         player.src = blobUrl;
@@ -42,11 +44,17 @@ fileInput.addEventListener('change', function(e) {
 
 // Play/Pause Video Click Controls
 previewWrapper.addEventListener('click', function() {
-    if (player.paused || player.ended) { player.play().catch(function(err) { console.log(err); }); } 
-    else { player.pause(); }
+    if (player.paused || player.ended) { 
+        player.play().catch(function(err) { console.log(err); }); 
+    } else { 
+        player.pause(); 
+    }
 });
 
-player.addEventListener('ended', function() { player.currentTime = 0; player.pause(); });
+player.addEventListener('ended', function() { 
+    player.currentTime = 0; 
+    player.pause(); 
+});
 
 // Video Render Engine
 blurBtn.addEventListener('click', function() {
@@ -54,12 +62,15 @@ blurBtn.addEventListener('click', function() {
     
     blurBtn.style.display = 'none';
     progressWrapper.style.display = 'block';
-    progressFill.style.width = '50%';
-    progressLabel.textContent = "Applying Effects...";
+    progressFill.style.width = '25%';
+    progressLabel.textContent = "Reading file...";
     statusDiv.textContent = "Processing frame mixing scripts...";
 
     const reader = new FileReader();
     reader.onload = function() {
+        progressFill.style.width = '50%';
+        progressLabel.textContent = "Applying effects...";
+        
         const u8array = new Uint8Array(reader.result);
         
         const sigmaValue = (parseInt(sliderBlur.value) / 100) * 8; 
@@ -70,14 +81,22 @@ blurBtn.addEventListener('click', function() {
         if (sigmaValue > 0) filters.push('gblur=sigma=' + sigmaValue);
         const filterArgs = filters.join(',');
 
-        // Instantly execute inside standalone web assembler space
+        // Execute inside standalone web assembler space
         try {
+            // Check if library loaded safely
+            if (typeof ffmpeg === 'undefined') {
+                alert("The processing library is still loading from the web. Please wait 5 seconds and click again.");
+                blurBtn.style.display = 'block';
+                progressWrapper.style.display = 'none';
+                return;
+            }
+
             const result = ffmpeg({
                 arguments: ['-i', 'input.mp4', '-vf', filterArgs, '-c:a', 'copy', 'output.mp4'],
                 MEMFS: [{ name: 'input.mp4', data: u8array }]
             });
 
-            const outVideo = result.MEMFS[0];
+            const outVideo = result.MEMFS && result.MEMFS[0]; // FIXED: Targeting individual file arrays inside MEMFS
             if (outVideo && outVideo.data) {
                 progressFill.style.width = '100%';
                 progressLabel.textContent = "Finished 100%";
@@ -91,11 +110,11 @@ blurBtn.addEventListener('click', function() {
                 exportBtn.style.display = 'block';
                 statusDiv.textContent = "Render completed! Click Export to save.";
             } else {
-                throw new Error("Render returned clean metadata but empty track bounds.");
+                throw new Error("Render returned empty track data bounds.");
             }
         } catch (err) {
             console.error(err);
-            statusDiv.textContent = "⚠️ Processing error. Ensure file size is small (under 10MB).";
+            statusDiv.textContent = "⚠️ Processing error. Try turning down the Blur / Blend sliders slightly.";
             progressWrapper.style.display = 'none';
             blurBtn.style.display = 'block';
         }
