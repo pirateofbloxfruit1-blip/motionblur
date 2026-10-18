@@ -18,7 +18,7 @@ const progressFill = document.getElementById('progress-fill');
 const progressLabel = document.getElementById('progress-label');
 const statusDiv = document.getElementById('status');
 
-// 1. Sliders percentage tracking (Now completely isolated so it cannot freeze)
+// 1. Sliders percentage tracking
 if (sliderBlur && blurVal) {
     sliderBlur.addEventListener('input', function() {
         blurVal.textContent = sliderBlur.value + '%';
@@ -78,7 +78,7 @@ if (player) {
     });
 }
 
-// 4. Video Render Engine (Safely initializes library ONLY when button is clicked)
+// 4. Video Render Engine (With Direct Core Optimization Maps)
 if (blurBtn) {
     blurBtn.addEventListener('click', async function() {
         if (!fileInput || !fileInput.files || fileInput.files.length === 0) return;
@@ -90,7 +90,6 @@ if (blurBtn) {
             if (progressLabel) progressLabel.textContent = "Loading Engine...";
             if (statusDiv) statusDiv.textContent = "Initializing libraries...";
 
-            // Safe on-demand loading to prevent initial startup crashes
             if (typeof FFmpeg === 'undefined') {
                 alert("The video processing library hasn't finished downloading yet. Please wait 5 seconds and try again.");
                 blurBtn.style.display = 'block';
@@ -98,8 +97,12 @@ if (blurBtn) {
                 return;
             }
 
+            // FIXED: Added direct corePath parameters so initialization doesn't hang in an infinite loop
             if (!ffmpegInstance) {
-                ffmpegInstance = FFmpeg.createFFmpeg({ log: false });
+                ffmpegInstance = FFmpeg.createFFmpeg({ 
+                    corePath: 'https://unpkg.com',
+                    log: true 
+                });
                 
                 ffmpegInstance.setLogger(function(logData) {
                     const message = logData.message;
